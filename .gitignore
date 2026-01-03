@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# Termux
+.cache/
+.local/
+
+# Secrets
+config/config.py
+
+# Virtual env (if later)
+venv/
