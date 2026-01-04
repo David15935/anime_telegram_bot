@@ -2,6 +2,9 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from bot.anime_api import *
 from bot.keyboards import anime_buttons
+from telegram import InlineQueryResultArticle, InputTextMessageContent
+from telegram.ext import InlineQueryHandler
+import uuid
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -60,4 +63,89 @@ async def airing(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def wallpaper(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = anime_wallpaper()
-    await update.message.reply_photo(photo=url)
+    await update.message.reply_photo(
+    photo=url,
+    caption=f"🖼️ Anime Wallpaper\n🎌 {title}"
+)
+
+async def inline_search(update, context):
+    query = update.inline_query.query
+
+    if not query:
+        return
+
+    results = []
+    try:
+        data = search_anime(query)
+    except Exception:
+        return
+
+    for anime in data[:5]:
+        title = anime["title"]
+        score = anime["score"] or "N/A"
+        url = anime["url"]
+
+        description = f"⭐ {score} | {anime['status']}"
+
+        message = (
+            f"🎌 *{title}*\n"
+            f"⭐ Score: {score}\n"
+            f"📺 Episodes: {anime['episodes']}\n"
+            f"📅 Status: {anime['status']}\n"
+            f"\n🔗 {url}"
+        )
+
+        results.append(
+            InlineQueryResultArticle(
+                id=str(uuid.uuid4()),
+                title=title,
+                description=description,
+                input_message_content=InputTextMessageContent(
+                    message_text=message,
+                    parse_mode="Markdown"
+                )
+            )
+        )
+
+    await update.inline_query.answer(results, cache_time=10)
+
+async def inline_search(update, context):
+    query = update.inline_query.query
+
+    if not query:
+        return
+
+    results = []
+    try:
+        data = search_anime(query)
+    except Exception:
+        return
+
+    for anime in data[:5]:
+        title = anime["title"]
+        score = anime["score"] or "N/A"
+        url = anime["url"]
+
+        description = f"⭐ {score} | {anime['status']}"
+
+        message = (
+            f"🎌 *{title}*\n"
+            f"⭐ Score: {score}\n"
+            f"📺 Episodes: {anime['episodes']}\n"
+            f"📅 Status: {anime['status']}\n"
+            f"\n🔗 {url}"
+        )
+
+        results.append(
+            InlineQueryResultArticle(
+                id=str(uuid.uuid4()),
+                title=title,
+                description=description,
+                input_message_content=InputTextMessageContent(
+                    message_text=message,
+                    parse_mode="Markdown"
+                )
+            )
+        )
+
+    await update.inline_query.answer(results, cache_time=10)
