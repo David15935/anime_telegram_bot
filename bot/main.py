@@ -1,47 +1,57 @@
 import logging
-from telegram.ext import Application, CommandHandler
-from telegram.request import HTTPXRequest
+from telegram.ext import (
+    ApplicationBuilder,
+    InlineQueryHandler,
+    CommandHandler,
+    CallbackQueryHandler,
+)
 
 from config.config import BOT_TOKEN
-from bot.handlers import start, anime, top, airing, wallpaper
+from bot.handlers import inline_search, anime_details, paginate
 
-# ---------------- LOGGING ----------------
+
+# ---------- LOGGING CONFIG ----------
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     level=logging.INFO,
 )
 
-# ---------------- ERROR HANDLER ----------------
-async def error_handler(update, context):
-    print("⚠️ Error:", context.error)
+logger = logging.getLogger(__name__)
 
-# ---------------- MAIN ----------------
-def main():
-    request = HTTPXRequest(
-        connect_timeout=30,
-        read_timeout=30,
+
+# ---------- ERROR HANDLER ----------
+async def error_handler(update, context):
+    logger.exception(
+        "Unhandled exception while handling an update",
+        exc_info=context.error,
     )
 
+
+# ---------- MAIN ----------
+def main():
+    logger.info("Starting bot...")
+
     app = (
-        Application.builder()
+        ApplicationBuilder()
         .token(BOT_TOKEN)
-        .request(request)
+        .connect_timeout(30)
+        .read_timeout(30)
+        .write_timeout(30)
         .build()
     )
 
-    # Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("anime", anime))
-    app.add_handler(CommandHandler("top", top))
-    app.add_handler(CommandHandler("airing", airing))
-    app.add_handler(CommandHandler("wallpaper", wallpaper))
+    logger.info("Bot initialized, registering handlers...")
 
-    # Error handler
+    app.add_handler(CommandHandler("anime", anime_details))
+    app.add_handler(CallbackQueryHandler(paginate, pattern="^page:"))
+
+    # 🔥 THIS WAS MISSING
     app.add_error_handler(error_handler)
 
-    print("Anime Bot running...")
+    logger.info("Connecting to Telegram...")
     app.run_polling()
 
-# ---------------- ENTRY ----------------
+
 if __name__ == "__main__":
     main()
+

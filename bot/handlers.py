@@ -1,151 +1,67 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from bot.anime_api import *
-from bot.keyboards import anime_buttons
-from telegram import InlineQueryResultArticle, InputTextMessageContent
-from telegram.ext import InlineQueryHandler
-import uuid
+from bot.anime_api import search_anime, get_anime_by_id
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎌 *Anime Bot Activated*\n\n"
-        "/anime <name>\n"
-        "/top\n"
-        "/airing\n"
-        "/wallpaper",
-        parse_mode="Markdown"
+
+# ---------- INLINE SEARCH (STUB) ----------
+async def inline_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.inline_query.answer(
+        [],
+        switch_pm_text="Use /anime <name> for full details",
+        switch_pm_parameter="start",
     )
 
-async def anime(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+# ---------- ANIME DETAILS ----------
+async def anime_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("Usage: /anime Naruto")
+        await update.message.reply_text("❌ Usage: /anime <anime name>")
         return
 
-    data = search_anime(" ".join(context.args))
-    if not data:
-        await update.message.reply_text("Anime not found.")
-        return
+    query = " ".join(context.args)
 
-    a = data[0]
-    trailer = a["trailer"]["url"] or "https://youtube.com"
-    mal = a["url"]
-    anilist = f"https://anilist.co/search/anime?search={a['title']}"
-
-    text = (
-        f"🎌 *{a['title']}*\n"
-        f"⭐ Score: {a['score']}\n"
-        f"📺 Episodes: {a['episodes']}\n"
-        f"📅 Status: {a['status']}\n"
-        f"🎭 Genres: {', '.join(g['name'] for g in a['genres'])}\n"
-        f"\n📝 {a['synopsis'][:400]}..."
-    )
-
-    await update.message.reply_photo(
-        photo=a["images"]["jpg"]["large_image_url"],
-        caption=text,
-        parse_mode="Markdown",
-        reply_markup=anime_buttons(trailer, mal, anilist)
-    )
-
-async def top(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = top_anime()
-    msg = "🔥 *Top Anime*\n\n"
-    for a in data:
-        msg += f"⭐ {a['title']} — {a['score']}\n"
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-async def airing(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = airing_anime()
-    msg = "📡 *Currently Airing*\n\n"
-    for a in data:
-        msg += f"📺 {a['title']}\n"
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-async def wallpaper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = anime_wallpaper()
-    await update.message.reply_photo(
-    photo=url,
-    caption=f"🖼️ Anime Wallpaper\n🎌 {title}"
-)
-
-async def inline_search(update, context):
-    query = update.inline_query.query
-
-    if not query:
-        return
-
-    results = []
     try:
-        data = search_anime(query)
-    except Exception:
-        return
+        search_result = await search_anime(query)
 
-    for anime in data[:5]:
+        if not search_result:
+            await update.message.reply_text("❌ Anime not found.")
+            return
+
+        mal_id = search_result["mal_id"]
+        anime = await get_anime_by_id(mal_id)
+
         title = anime["title"]
-        score = anime["score"] or "N/A"
-        url = anime["url"]
+        score = anime.get("score", "N/A")
+        episodes = anime.get("episodes", "N/A")
+        synopsis = anime.get("synopsis", "No synopsis available.")
+        image = anime["images"]["jpg"]["large_image_url"]
 
-        description = f"⭐ {score} | {anime['status']}"
+        trailer_url = (
+            anime["trailer"]["url"]
+            if anime.get("trailer") and anime["trailer"]["url"]
+            else "No trailer available"
+        )
 
-        message = (
-            f"🎌 *{title}*\n"
+        caption = (
+            f"🎬 **{title}**\n\n"
             f"⭐ Score: {score}\n"
-            f"📺 Episodes: {anime['episodes']}\n"
-            f"📅 Status: {anime['status']}\n"
-            f"\n🔗 {url}"
+            f"📺 Episodes: {episodes}\n\n"
+            f"📖 {synopsis[:800]}...\n\n"
+            f"▶️ Trailer: {trailer_url}"
         )
 
-        results.append(
-            InlineQueryResultArticle(
-                id=str(uuid.uuid4()),
-                title=title,
-                description=description,
-                input_message_content=InputTextMessageContent(
-                    message_text=message,
-                    parse_mode="Markdown"
-                )
-            )
+        await update.message.reply_photo(
+            photo=image,
+            caption=caption,
+            parse_mode="Markdown",
         )
 
-    await update.inline_query.answer(results, cache_time=10)
+    except Exception as e:
+        await update.message.reply_text("⚠️ Failed to fetch anime details.")
+        raise e
 
-async def inline_search(update, context):
-    query = update.inline_query.query
 
-    if not query:
-        return
-
-    results = []
-    try:
-        data = search_anime(query)
-    except Exception:
-        return
-
-    for anime in data[:5]:
-        title = anime["title"]
-        score = anime["score"] or "N/A"
-        url = anime["url"]
-
-        description = f"⭐ {score} | {anime['status']}"
-
-        message = (
-            f"🎌 *{title}*\n"
-            f"⭐ Score: {score}\n"
-            f"📺 Episodes: {anime['episodes']}\n"
-            f"📅 Status: {anime['status']}\n"
-            f"\n🔗 {url}"
-        )
-
-        results.append(
-            InlineQueryResultArticle(
-                id=str(uuid.uuid4()),
-                title=title,
-                description=description,
-                input_message_content=InputTextMessageContent(
-                    message_text=message,
-                    parse_mode="Markdown"
-                )
-            )
-        )
-
-    await update.inline_query.answer(results, cache_time=10)
+# ---------- PAGINATION (STUB) ----------
+async def paginate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("Pagination coming soon.")
